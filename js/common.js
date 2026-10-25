@@ -1,13 +1,13 @@
 /* Shared by the player page (index.html) and the host page (host.html). */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-import { getFirestore, doc, collection, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getFirestore, doc, collection, getDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { getAuth, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { firebaseConfig, GAME_ID } from "./config.js";
 
 // ?emu runs against local Firebase emulators (see README) instead of the real project
 export const emulated = new URLSearchParams(location.search).has("emu");
 export const configured = emulated || !String(firebaseConfig.apiKey).includes("REPLACE");
-export const app = configured ? initializeApp(emulated ? {apiKey:"demo", projectId:"demo-fidi", storageBucket:"demo-fidi.appspot.com"} : firebaseConfig) : null;
+export const app = configured ? initializeApp(emulated ? {apiKey:"demo", projectId:"demo-fidi"} : firebaseConfig) : null;
 export const db = app && getFirestore(app);
 export const auth = app && getAuth(app);
 if (emulated) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", {disableWarnings:true}) }
@@ -16,7 +16,8 @@ if (emulated) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmul
    (game doc)     public game state, host writes
    players/{uid}  name + last seen, public, each player writes their own
    private/{uid}  a player's guesses and feeling pick, only that player and the host can read
-   tasks/{uid}    a player's secret task for the round, only that player and the host can read */
+   tasks/{uid}    a player's secret task for the round, only that player and the host can read
+   clips/{id}-{n} part n of a song clip (WAV bytes split to fit Firestore's 1 MiB doc limit), public, host writes */
 export const gameRef = db && doc(db, "games", GAME_ID);
 export const col = name => collection(db, "games", GAME_ID, name);
 export const sub = (name, id) => doc(db, "games", GAME_ID, name, id);
@@ -36,7 +37,7 @@ export const STATE_V = 4;
 /* results[r] = {rows:[{id,n,a,got:[names],pts}]}, written by the host when a round is scored,
    so answers are only public once revealed. */
 export const blank = () => ({v:STATE_V, round:-1, phase:"lobby", timer:{endsAt:0,left:300,running:false}, wakeOpts:[], results:{},
-  cfg:{clips:[0,1,2].map(()=>({name:"",url:"",path:""})), angles:DEFAULT_ANGLES.slice(), feelings:DEFAULT_FEELINGS.slice()}});
+  cfg:{clips:[0,1,2].map(()=>({name:"",id:"",parts:0})), angles:DEFAULT_ANGLES.slice(), feelings:DEFAULT_FEELINGS.slice()}});
 
 /* ---------- helpers ---------- */
 export const $ = id => document.getElementById(id);
@@ -104,14 +105,27 @@ let ac = null;
 export function chime() { try { ac = ac || new (window.AudioContext||window.webkitAudioContext)(); [523.25,659.25,783.99].forEach((f,i) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; const t = ac.currentTime + i*.22; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.25,t+.02); g.gain.exponentialRampToValueAtTime(.001,t+1.2); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+1.3) }) } catch (e) {} }
 document.addEventListener("pointerdown", () => { try { ac = ac || new (window.AudioContext||window.webkitAudioContext)() } catch (e) {} }, {once:true});
 
+/* clips are fetched once and kept as blob URLs; preload them early so a tap can play straight away */
+const clipUrls = {}, clipLoads = {};
+export function loadClip(c) {
+  if (!c?.id) return Promise.resolve(null);
+  return clipLoads[c.id] ||= Promise.all([...Array(c.parts).keys()].map(n => getDoc(sub("clips", `${c.id}-${n}`))))
+    .then(ds => clipUrls[c.id] = URL.createObjectURL(new Blob(ds.map(d => d.data().data.toUint8Array()), {type:"audio/wav"})))
+    .catch(e => { delete clipLoads[c.id]; throw e });
+}
+export function playClip(c, key) {
+  if (player.playing === key || clipUrls[c?.id]) return play(clipUrls[c?.id], key);
+  loadClip(c).then(url => play(url, key), () => flash("Couldn't load that clip. Check your connection."));
+}
+
 /* one shared audio element; play(url, key) toggles */
 const audio = new Audio();
 export const player = {playing:null, onChange:() => {}};
 audio.addEventListener("ended", () => { player.playing = null; player.onChange() });
 audio.addEventListener("timeupdate", () => { if (player.playing && audio.currentTime >= CLIP_SECS + 0.5) { audio.pause(); player.playing = null; player.onChange() } });
 export function play(url, key) {
-  if (!url) return;
   if (player.playing === key) { audio.pause(); player.playing = null; player.onChange(); return }
+  if (!url) return;
   audio.src = url; audio.currentTime = 0;
   audio.play().then(() => { player.playing = key; player.onChange() }).catch(() => flash("This clip won't play on this device."));
 }

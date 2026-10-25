@@ -27,6 +27,12 @@ service cloud.firestore {
         allow delete: if isHost();
       }
 
+      // Song clips, split into parts of under 1 MiB each.
+      match /clips/{part} {
+        allow read: if true;
+        allow write: if isHost();
+      }
+
       // A player's secret task. Only they and the host can see it.
       match /tasks/{uid} {
         allow read: if isMe(uid) || isHost();

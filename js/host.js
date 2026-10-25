@@ -1,12 +1,8 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { onSnapshot, setDoc, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { getStorage, ref as sref, uploadBytes, getDownloadURL, deleteObject, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-storage.js";
-import { GAME_ID } from "./config.js";
-import { emulated, configured, app, auth, db, gameRef, col, sub, ROUNDS, CLIP_SECS, STATE_V, blank, $, esc, fmt, clone, ls, leftNow, options, label,
-  totals, setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, play, player, notConfigured } from "./common.js";
+import { onSnapshot, setDoc, writeBatch, getDocs, Bytes } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { configured, auth, db, gameRef, col, sub, ROUNDS, CLIP_SECS, STATE_V, blank, $, esc, fmt, clone, ls, leftNow, options, label,
+  totals, setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, play, playClip, loadClip, player, notConfigured } from "./common.js";
 
-const storage = app && getStorage(app);
-if (emulated) connectStorageEmulator(storage, "127.0.0.1", 9199);
 let G = blank(), players = [], tasks = {}, privs = {}, conn = "connecting", user = null, loaded = {game:false, players:false, tasks:false};
 let confirmReset = false;
 const unsubs = [];
@@ -98,14 +94,14 @@ async function resetGame() {
   } catch (e) { flash("Couldn't reset. Check your connection.") }
 }
 
-/* ---------- clips: cut CLIP_SECS from a song file, mono WAV, upload to Storage ---------- */
+/* ---------- clips: cut CLIP_SECS from a song file, mono WAV, stored in Firestore in parts ---------- */
 const draft = [{},{},{}];
 async function cutClip(file, start) {
   const buf = await file.arrayBuffer();
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const song = await new Promise((res, rej) => ctx.decodeAudioData(buf, res, rej));
   ctx.close();
-  const rate = 32000, s0 = Math.min(Math.max(0, start), Math.max(0, song.duration - CLIP_SECS)), secs = Math.min(CLIP_SECS, song.duration - s0);
+  const rate = 24000, s0 = Math.min(Math.max(0, start), Math.max(0, song.duration - CLIP_SECS)), secs = Math.min(CLIP_SECS, song.duration - s0);
   const off = new OfflineAudioContext(1, Math.floor(secs*rate), rate);
   const src = off.createBufferSource(), gain = off.createGain();
   src.buffer = song; src.connect(gain).connect(off.destination);
@@ -126,18 +122,21 @@ async function previewClip(i) {
   try { if (d.url) URL.revokeObjectURL(d.url); d.url = URL.createObjectURL(await cutClip(d.file, d.start)); play(d.url, "d"+i) }
   catch (e) { flash("Couldn't read that file. Try an mp3 or m4a.") }
 }
+const PART = 900000; // bytes per Firestore doc, under the 1 MiB limit
 async function saveClip(i) {
   const d = readDraft(i); if (!d.file) { flash("Choose a song file first."); return }
   d.busy = true; render();
-  try {
-    const blob = await cutClip(d.file, d.start);
-    const path = `games/${GAME_ID}/clips/clip${i+1}-${Date.now()}.wav`, r = sref(storage, path);
-    await uploadBytes(r, blob, {contentType:"audio/wav"});
-    const url = await getDownloadURL(r), old = G.cfg.clips[i].path;
-    const g = clone(G); g.cfg.clips[i] = {name:(d.name || d.file.name.replace(/\.[^.]+$/, "")).slice(0, 40), url, path};
-    draft[i] = {}; $("cn"+i).value = g.cfg.clips[i].name; await commit(g); flash(`Clip ${i+1} saved.`);
-    if (old) deleteObject(sref(storage, old)).catch(() => {});
-  } catch (e) { d.busy = false; render(); flash(e?.code?.startsWith("storage/") ? "Couldn't upload the clip. Check Storage is set up." : "Couldn't read that file. Try an mp3 or m4a.") }
+  let bytes;
+  try { bytes = new Uint8Array(await (await cutClip(d.file, d.start)).arrayBuffer()) }
+  catch (e) { d.busy = false; render(); flash("Couldn't read that file. Try an mp3 or m4a."); return }
+  const old = G.cfg.clips[i], id = `c${i+1}-${Date.now().toString(36)}`, parts = Math.ceil(bytes.length / PART);
+  const g = clone(G); g.cfg.clips[i] = {name:(d.name || d.file.name.replace(/\.[^.]+$/, "")).slice(0, 40), id, parts};
+  const b = writeBatch(db);
+  for (let n = 0; n < parts; n++) b.set(sub("clips", `${id}-${n}`), {data:Bytes.fromUint8Array(bytes.subarray(n*PART, (n+1)*PART))});
+  for (let n = 0; n < (old.parts || 0); n++) b.delete(sub("clips", `${old.id}-${n}`));
+  b.set(gameRef, g);
+  try { await b.commit(); draft[i] = {}; $("cn"+i).value = g.cfg.clips[i].name; render(); flash(`Clip ${i+1} saved.`) }
+  catch (e) { d.busy = false; render(); flash("Couldn't save the clip. Check your connection.") }
 }
 
 /* ---------- views ---------- */
@@ -160,7 +159,7 @@ function loginView() {
 function hostView() {
   const r = G.round, k = R()?.key, deal = currentDeal();
   let now = `<div class="card"><div><div class="label">${r < 0 ? "Before the game" : `Round ${r+1} · ${PHASE_NAME[G.phase]}`}</div><h2>${r < 0 ? "Waiting for players" : esc(G.phase === "end" ? "Game over" : R().title)}</h2></div>`;
-  if (G.phase === "listen" && k === "clips") now += `<div class="stack">${G.cfg.clips.map((c,i) => `<button data-play="${i}" ${c.url ? "" : "disabled"}>${player.playing === "h"+i ? "Stop" : "Play"} clip ${i+1}${c.name ? " · "+esc(c.name) : ""}</button>`).join("")}</div>${G.cfg.clips.some(c => !c.url) ? `<p class="small muted">Add the missing clips under Setup.</p>` : ""}`;
+  if (G.phase === "listen" && k === "clips") now += `<div class="stack">${G.cfg.clips.map((c,i) => `<button data-play="${i}" ${c.id ? "" : "disabled"}>${player.playing === "h"+i ? "Stop" : "Play"} clip ${i+1}${c.name ? " · "+esc(c.name) : ""}</button>`).join("")}</div>${G.cfg.clips.some(c => !c.id) ? `<p class="small muted">Add the missing clips under Setup.</p>` : ""}`;
   if (G.phase === "listen" && k === "wake") now += `<a href="https://www.youtube.com/results?search_query=James+Joyce+reads+Anna+Livia+Plurabelle+1929" target="_blank" rel="noopener">Joyce reading Anna Livia Plurabelle ↗</a>`;
   if (G.phase === "make") now += clockHTML(G) + `<div class="row" style="justify-content:center"><button data-a="pause">${G.timer.running ? "Pause" : "Resume"}</button><button data-a="m1" aria-label="One minute less">−1 min</button><button data-a="p1" aria-label="One minute more">+1 min</button></div>`;
   if (G.phase === "listen" || G.phase === "lobby") now += `<div class="row"><span class="muted small">Drawing time</span><button class="mini" data-a="m1">−1</button><b>${fmt(G.timer.left)}</b><button class="mini" data-a="p1">+1</button></div>`;
@@ -184,10 +183,10 @@ function hostView() {
       <button data-a="redeal">Shuffle again</button>`}</details></div>`;
   }
 
-  const setup = `<div class="card"><details ${G.cfg.clips.some(c => !c.url) ? "open" : ""}><summary>Setup</summary><div class="stack">
+  const setup = `<div class="card"><details ${G.cfg.clips.some(c => !c.id) ? "open" : ""}><summary>Setup</summary><div class="stack">
     <div class="label">Your three clips (${CLIP_SECS}s each)</div>
     ${G.cfg.clips.map((c,i) => { const d = draft[i]; return `<div class="slot">
-      <div class="row between"><b>Clip ${i+1}</b>${c.url ? `<button class="mini" data-play="${i}">${player.playing === "h"+i ? "Stop" : "Play saved"}</button>` : `<span class="small muted">Empty</span>`}</div>
+      <div class="row between"><b>Clip ${i+1}</b>${c.id ? `<button class="mini" data-play="${i}">${player.playing === "h"+i ? "Stop" : "Play saved"}</button>` : `<span class="small muted">Empty</span>`}</div>
       <input id="cn${i}" placeholder="Song name" value="${esc(d.name ?? c.name)}" maxlength="40" aria-label="Clip ${i+1} name">
       <input id="cf${i}" type="file" accept="audio/*,video/*" aria-label="Song file for clip ${i+1}">
       <div class="row"><label for="cs${i}" class="small muted">Start at (seconds)</label><input id="cs${i}" type="number" min="0" step="1" value="${d.start || 0}" style="width:6em"></div>
@@ -218,7 +217,7 @@ setFlashRender(render); player.onChange = render;
 /* ---------- events ---------- */
 document.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  if (b.dataset.play != null) { const i = +b.dataset.play; play(G.cfg.clips[i]?.url, "h"+i); return }
+  if (b.dataset.play != null) { const i = +b.dataset.play; playClip(G.cfg.clips[i], "h"+i); return }
   if (b.dataset.preview != null) { const i = +b.dataset.preview; player.playing === "d"+i ? play(draft[i].url, "d"+i) : previewClip(i); return }
   if (b.dataset.save != null) { saveClip(+b.dataset.save); return }
   if (b.dataset.del) { removePlayer(b.dataset.del); return }
@@ -236,7 +235,7 @@ document.addEventListener("click", e => {
     const lines = id => $(id).value.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 30);
     const ang = lines("angles"), fe = lines("feelings");
     if (ang.length) g.cfg.angles = ang; if (fe.length) g.cfg.feelings = fe;
-    g.cfg.clips.forEach((c,i) => { const n = $("cn"+i).value.trim().slice(0, 40); if (c.url && n) c.name = n });
+    g.cfg.clips.forEach((c,i) => { const n = $("cn"+i).value.trim().slice(0, 40); if (c.id && n) c.name = n });
     flash("Saved.");
   } else return;
   commit(g);
@@ -277,6 +276,7 @@ if (configured) onAuthStateChanged(auth, u => {
     onSnapshot(gameRef, s => {
       const x = s.exists() ? s.data() : null;
       if (x && x.v === STATE_V) G = {...blank(), ...x}; else { G = blank(); setDoc(gameRef, G).catch(() => {}) }
+      G.cfg.clips.forEach(c => loadClip(c).catch(() => {}));
       loaded.game = true; ready();
     }, () => { conn = "denied"; render() }),
     onSnapshot(col("players"), s => {
