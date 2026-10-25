@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Replace with the UID of your host account (Firebase console → Authentication → Users).
+    function isHost() { return request.auth != null && request.auth.uid in ['REPLACE_WITH_HOST_UID']; }
+    function isMe(uid) { return request.auth != null && request.auth.uid == uid; }
+
+    match /games/{game} {
+      // Public game state. Answers only appear here once the host reveals them.
+      allow read: if true;
+      allow write: if isHost();
+
+      // Each player's name and last-seen time.
+      match /players/{uid} {
+        allow read: if true;
+        allow create, update: if isMe(uid)
+          && request.resource.data.keys().hasOnly(['n', 'joined', 'seen'])
+          && request.resource.data.n is string
+          && request.resource.data.n.size() > 0 && request.resource.data.n.size() <= 24;
+        allow delete: if isHost();
+      }
+
+      // A player's guesses and feeling pick. Hidden from other players.
+      match /private/{uid} {
+        allow read: if isMe(uid) || isHost();
+        allow create, update: if isMe(uid) && request.resource.data.keys().hasOnly(['r', 'g', 'pick']);
+        allow delete: if isHost();
+      }
+
+      // A player's secret task. Only they and the host can see it.
+      match /tasks/{uid} {
+        allow read: if isMe(uid) || isHost();
+        allow write: if isHost();
+      }
+    }
+  }
+}
