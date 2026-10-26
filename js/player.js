@@ -1,7 +1,7 @@
 import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { onSnapshot, setDoc, updateDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { configured, auth, gameRef, col, sub, ROUNDS, STATE_V, blank, $, esc, clone, ls, leftNow, pname, options, fmt, totals,
-  setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, playClip, loadClip, player, notConfigured } from "./common.js";
+  setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, playClip, loadClip, player, stop, notConfigured } from "./common.js";
 
 let G = blank(), players = [], task = null, restored = null, uid = null, conn = "connecting";
 let name = ls("fidi-name") || "", editing = false, firstPlayers = true;
@@ -42,12 +42,12 @@ function view() {
   if (ph === "listen") {
     body = k === "clips"
       ? `<div class="card hero"><div class="label">Round ${r+1}</div><div class="big">Listen together</div><p>Three clips. One will be yours.</p></div>
-        <div class="card"><ol class="list">${G.cfg.clips.map((c,i) => `<li><span class="score">${i+1}</span><span class="grow">${esc(c.name || "Clip "+(i+1))}</span></li>`).join("")}</ol></div>`
+        <div class="card"><ol class="list">${G.cfg.clips.map((c,i) => `<li><span class="score">${i+1}</span><span class="grow">Clip ${i+1}</span></li>`).join("")}</ol></div>`
       : `<div class="card hero"><div class="label">Round ${r+1}</div><div class="big">Listen to the reading</div><p>Take it in. Your drawing angle comes next.</p></div>`;
   }
   if (ph === "make") {
     let title = "", extra = "";
-    if (k === "clips") { const c = t == null ? null : G.cfg.clips[+t]; title = c ? `Clip ${+t+1}` : "Waiting for your clip"; if (c) loadClip(c).catch(() => {}); extra = c ? `<p>${esc(c.name)}</p>${c.id ? `<button data-play="${t}">${player.playing === "me" ? "Stop" : "Play my clip"}</button>` : ""}` : "" }
+    if (k === "clips") { const c = t == null ? null : G.cfg.clips[+t]; title = c ? `Clip ${+t+1}` : "Waiting for your clip"; if (c) loadClip(c).catch(() => {}); extra = c ? `${c.id ? `<button data-play="${t}">${player.playing === "me" ? "Stop" : "Play my clip"}</button><p class="small">It loops while you draw. Headphones help.</p>` : ""}` : "" }
     if (k === "wake") title = t == null ? "Waiting for your angle" : `Draw ${esc((G.cfg.angles[+t] || "").replace(/^./, c => c.toLowerCase()))}`;
     if (k === "feel") { title = "Make a feeling"; extra = `<p>From today or this week. No faces, no words.</p>` }
     if (k === "portrait") { title = t == null ? "Waiting for your person" : `Draw ${esc(pname(players, t))}`; extra = t == null ? "" : "<p>As a feeling, not a face.</p>" }
@@ -78,7 +78,7 @@ setFlashRender(render); player.onChange = render;
 /* ---------- events ---------- */
 document.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  if (b.dataset.play != null) { playClip(G.cfg.clips[+b.dataset.play], "me"); return }
+  if (b.dataset.play != null) { playClip(G.cfg.clips[+b.dataset.play], "me", true); return }
   if (b.dataset.guess) { mine.g[b.dataset.guess] = b.dataset.k; saveMine(); render(); return }
   if (b.dataset.pick != null) { mine.pick = b.dataset.pick; saveMine(); render(); return }
   if (b.dataset.a === "rename") { editing = true; render() }
@@ -94,6 +94,7 @@ setInterval(() => {
   const l = leftNow(G), c = $("clock");
   if (c) { c.textContent = fmt(l); c.classList.toggle("done", l === 0) }
   if (G.phase === "make" && G.timer.running && l === 0 && lastLeft > 0) chime();
+  if (player.playing === "me" && (G.phase !== "make" || l === 0)) stop();
   lastLeft = l;
 }, 500);
 

@@ -6,7 +6,7 @@ Players open the player link on their phone and type a name, with no account nee
 
 | # | Round | What you draw |
 |---|---|---|
-| 1 | Guess the Clip | One of three song clips. You can replay yours on your phone. |
+| 1 | Guess the Clip | One of three song clips. It loops on your phone while you draw. |
 | 2 | Wake Drawings | An "angle" on a reading of Joyce's *Finnegans Wake*, such as "the weather". |
 | 3 | Feelings | A feeling from your week. You pick it yourself, in secret. |
 | 4 | Secret Portrait | Another player, drawn as a feeling rather than a face. |

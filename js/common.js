@@ -51,7 +51,7 @@ export const pname = (players, pid) => (players.find(p => p.id === pid) || {}).n
 /* guess options for round r; portrait options are the players themselves */
 export function options(G, players, r) {
   const k = ROUNDS[r].key;
-  if (k === "clips") return G.cfg.clips.map((c,i) => ({k:String(i), l:`${i+1}${c.name ? " · "+c.name : ""}`}));
+  if (k === "clips") return G.cfg.clips.map((c,i) => ({k:String(i), l:`Clip ${i+1}`}));
   if (k === "wake") return (G.wakeOpts || []).map(i => ({k:String(i), l:G.cfg.angles[+i] || "?"}));
   if (k === "feel") return G.cfg.feelings.map((f,i) => ({k:String(i), l:f}));
   if (k === "portrait") return players.map(p => ({k:p.id, l:p.n}));
@@ -113,20 +113,21 @@ export function loadClip(c) {
     .then(ds => clipUrls[c.id] = URL.createObjectURL(new Blob(ds.map(d => d.data().data.toUint8Array()), {type:"audio/wav"})))
     .catch(e => { delete clipLoads[c.id]; throw e });
 }
-export function playClip(c, key) {
-  if (player.playing === key || clipUrls[c?.id]) return play(clipUrls[c?.id], key);
-  loadClip(c).then(url => play(url, key), () => flash("Couldn't load that clip. Check your connection."));
+export function playClip(c, key, loop = false) {
+  if (player.playing === key || clipUrls[c?.id]) return play(clipUrls[c?.id], key, loop);
+  loadClip(c).then(url => play(url, key, loop), () => flash("Couldn't load that clip. Check your connection."));
 }
 
-/* one shared audio element; play(url, key) toggles */
+/* one shared audio element; play(url, key) toggles, loop repeats until stopped */
 const audio = new Audio();
 export const player = {playing:null, onChange:() => {}};
 audio.addEventListener("ended", () => { player.playing = null; player.onChange() });
-audio.addEventListener("timeupdate", () => { if (player.playing && audio.currentTime >= CLIP_SECS + 0.5) { audio.pause(); player.playing = null; player.onChange() } });
-export function play(url, key) {
-  if (player.playing === key) { audio.pause(); player.playing = null; player.onChange(); return }
+audio.addEventListener("timeupdate", () => { if (player.playing && !audio.loop && audio.currentTime >= CLIP_SECS + 0.5) { audio.pause(); player.playing = null; player.onChange() } });
+export function stop() { if (player.playing) { audio.pause(); player.playing = null; player.onChange() } }
+export function play(url, key, loop = false) {
+  if (player.playing === key) { stop(); return }
   if (!url) return;
-  audio.src = url; audio.currentTime = 0;
+  audio.src = url; audio.currentTime = 0; audio.loop = loop;
   audio.play().then(() => { player.playing = key; player.onChange() }).catch(() => flash("This clip won't play on this device."));
 }
 

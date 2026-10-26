@@ -6,7 +6,7 @@ Open `host.html` on a laptop and sign in with the host email and password. Only 
 
 Open **Setup**:
 
-- **Clips**: for each of the three slots, choose a song file and a start time in seconds, then press **Preview**. When it sounds right, press **Save clip**. The app cuts 30 seconds and stores it, so the original file never leaves your laptop.
+- **Clips**: for each of the three slots, choose a song file and a start time in seconds, then press **Preview**. When it sounds right, press **Save clip**. The app cuts 30 seconds and stores it, so the original file never leaves your laptop. Three ready-made songs, with suggested start times, are in `songs/` (see `songs/CREDITS.md`).
 - **Wake angles** and **Feelings**: edit them, one per line, then press **Save names and lists**.
 
 ## Running it
