@@ -30,6 +30,7 @@ async function playRound(r,hasListen){
   await clickText(host,`Start round ${r}`);
   if(hasListen){await waitText(ps[0],r===1?"Listen together":"Listen to the reading");await clickText(host,"Start making")}
   for(const p of ps)await waitText(p,"Your secret");
+  console.log("  limit on Ann:",await ps[0].evaluate(()=>document.querySelector(".limit h2")?.innerText||"none"));
   if(r===1)for(const p of ps){await clickText(p,"Play my clip");await waitText(p,"Stop",10000);console.log(`  ${p.tag} clip plays`)}
   if(r===3&&ps.length===3){const p=await open(B+"index.html?emu","Dan");await waitText(p,"What's your name?");await p.type("#nm","Dan");await click(p,"#nameform button");ps.push(p);await waitText(p,"Your secret")}
   await new Promise(r=>setTimeout(r,1500));
@@ -68,5 +69,27 @@ await clickText(host,"Final scores");
 await waitText(ps[2],"Winner");
 console.log("final on Cat:",(await text(ps[2])).replace(/\n/g," | "));
 await host.screenshot({path:S+"/host-end.png",fullPage:true});await ps[0].screenshot({path:S+"/player-end.png",fullPage:true});
+
+// party mode: the host page becomes the big screen, phones become joysticks
+await host.goto(B+"party.html?emu");await host.setViewport({width:1280,height:720});
+await waitText(host,"Party mode");
+for(const p of ps)await p.waitForSelector(".pad:not([hidden])",{timeout:10000});
+await host.waitForFunction(n=>(document.body.innerText.match(/controller ready/g)||[]).length===n,{timeout:10000},ps.length);
+console.log("party: all",ps.length,"controllers ready");
+await host.bringToFront();await clickText(host,"Play Dodgefall");
+await waitText(ps[0],"Get ready");
+await waitText(ps[0],"Dodge the shadows",8000);
+// Ann holds the stick to the right for a second, then lets go
+const box=await ps[0].$eval(".pad-area",e=>{const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});
+await ps[0].mouse.move(box.x,box.y);await ps[0].mouse.down();await ps[0].mouse.move(box.x+80,box.y,{steps:4});
+await new Promise(r=>setTimeout(r,1000));await ps[0].mouse.up();
+await host.bringToFront(); // the game loop runs on animation frames, which pause in a background tab
+await waitText(host,"Round over",120000);
+console.log("party results:",(await host.evaluate(()=>[...document.querySelectorAll(".list")][0].innerText)).replace(/\n/g," "));
+for(const p of ps){await waitText(p,"You came");console.log(`  ${p.tag} pad:`,await p.$eval(".pad-msg",e=>e.textContent))}
+await host.screenshot({path:S+"/party-host.png"});await ps[0].screenshot({path:S+"/party-pad.png"});
+await clickText(host,"Back to the drawing game");
+for(const p of ps)await p.waitForSelector(".pad[hidden]",{timeout:10000});
+console.log("party: phones back to the drawing game");
 console.log("ERRORS:",errs.length?errs:"none");
 await browser.close();

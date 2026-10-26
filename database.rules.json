@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "party": {
+      "meta": { ".read": true, ".write": "auth.uid === 'SxL8iT7A6FZB173XlafthTbgg5W2'" },
+      "status": { ".read": true, ".write": "auth.uid === 'SxL8iT7A6FZB173XlafthTbgg5W2'" },
+      "in": {
+        ".read": "auth.uid === 'SxL8iT7A6FZB173XlafthTbgg5W2'",
+        "$uid": {
+          ".write": "auth.uid === $uid",
+          ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()"
+        }
+      }
+    }
+  }
+}

@@ -1,29 +1,37 @@
-/* Shared by the player page (index.html) and the host page (host.html). */
+/* Shared by the player page (index.html), the host page (host.html) and the party screen (party.html). */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, collection, getDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { getAuth, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+import { getDatabase, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
 import { firebaseConfig, GAME_ID } from "./config.js";
 
 // ?emu runs against local Firebase emulators (see README) instead of the real project
 export const emulated = new URLSearchParams(location.search).has("emu");
 export const configured = emulated || !String(firebaseConfig.apiKey).includes("REPLACE");
-export const app = configured ? initializeApp(emulated ? {apiKey:"demo", projectId:"demo-fidi"} : firebaseConfig) : null;
+export const app = configured ? initializeApp(emulated ? {apiKey:"demo", projectId:"demo-fidi", databaseURL:"https://demo-fidi-default-rtdb.firebaseio.com"} : firebaseConfig) : null;
 export const db = app && getFirestore(app);
 export const auth = app && getAuth(app);
-if (emulated) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", {disableWarnings:true}) }
+export const rtdb = app && getDatabase(app); // Realtime Database, only for party mode's live input
+if (emulated) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", {disableWarnings:true}); connectDatabaseEmulator(rtdb, "127.0.0.1", 9000) }
 
 /* Firestore layout, all under games/{GAME_ID}:
    (game doc)     public game state, host writes
    players/{uid}  name + last seen, public, each player writes their own
    private/{uid}  a player's guesses and feeling pick, only that player and the host can read
    tasks/{uid}    a player's secret task for the round, only that player and the host can read
-   clips/{id}-{n} part n of a song clip (WAV bytes split to fit Firestore's 1 MiB doc limit), public, host writes */
+   clips/{id}-{n} part n of a song clip (WAV bytes split to fit Firestore's 1 MiB doc limit), public, host writes
+   Party mode uses the Realtime Database instead, under party/:
+   meta           on, phase, game, scores and last placings, public, host writes
+   status/{uid}   "out" once a player is knocked out, public, host writes
+   in/{uid}       a player's joystick {x,y}, only the host reads, each player writes their own */
 export const gameRef = db && doc(db, "games", GAME_ID);
 export const col = name => collection(db, "games", GAME_ID, name);
 export const sub = (name, id) => doc(db, "games", GAME_ID, name, id);
 
 /* ---------- content ---------- */
 export const DEFAULT_ANGLES = ["The place where it happens","The main character","The sound of the words, as shapes","The weather","What happens next","It as a map","The colour of the voice","The river"];
+/* each round, everyone draws under one of these limits */
+export const LIMITS = ["Only circles","Only straight lines","Only triangles","Only dots","One continuous line: never lift your pen","Only squares and rectangles","Only wavy lines","With your other hand"];
 export const DEFAULT_FEELINGS = ["Joy","Calm","Worry","Frustration","Tired","Excited","Sad","Love","Proud","Bored","Restless","Hopeful"];
 export const ROUNDS = [
   {key:"clips",title:"Guess the Clip",phases:["listen","make","guess","results"],mins:5},
@@ -36,8 +44,13 @@ export const STATE_V = 4;
 
 /* results[r] = {rows:[{id,n,a,got:[names],pts}]}, written by the host when a round is scored,
    so answers are only public once revealed. */
-export const blank = () => ({v:STATE_V, round:-1, phase:"lobby", timer:{endsAt:0,left:300,running:false}, wakeOpts:[], results:{},
+export const blank = () => ({v:STATE_V, round:-1, phase:"lobby", timer:{endsAt:0,left:300,running:false}, wakeOpts:[], results:{}, limit:"",
   cfg:{clips:[0,1,2].map(()=>({name:"",id:"",parts:0})), angles:DEFAULT_ANGLES.slice(), feelings:DEFAULT_FEELINGS.slice()}});
+
+/* party mode: each player's colour, by join order */
+export const COLORS = ["#e8453c","#2f8fe0","#f2b705","#2bb673","#a05ce6","#ff7a1a","#14b8c4","#e64b9b"];
+export const colorOf = (players, id) => COLORS[Math.max(0, players.findIndex(p => p.id === id)) % COLORS.length];
+export const ordinal = n => n + (["th","st","nd","rd"][(n % 100 - 20) % 10] || ["th","st","nd","rd"][n % 100] || "th");
 
 /* ---------- helpers ---------- */
 export const $ = id => document.getElementById(id);

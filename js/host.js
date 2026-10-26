@@ -1,6 +1,6 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { onSnapshot, setDoc, writeBatch, getDocs, Bytes } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { configured, auth, db, gameRef, col, sub, ROUNDS, CLIP_SECS, STATE_V, blank, $, esc, fmt, clone, ls, leftNow, options, label,
+import { configured, auth, db, gameRef, col, sub, ROUNDS, LIMITS, CLIP_SECS, STATE_V, blank, $, esc, fmt, clone, ls, leftNow, options, label,
   totals, setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, play, playClip, loadClip, player, notConfigured } from "./common.js";
 
 let G = blank(), players = [], tasks = {}, privs = {}, conn = "connecting", user = null, loaded = {game:false, players:false, tasks:false};
@@ -66,12 +66,14 @@ function score(g) {
   g.results = {...g.results, [r]: {rows: players.map(p => ({id:p.id, n:p.n, a:ans(p.id) == null ? "—" : label(g, players, r, ans(p.id)),
     got:got[p.id].map(q => players.find(x => x.id === q).n), pts:pts[p.id]}))}};
 }
+const newLimit = old => { const o = LIMITS.filter(l => l !== old); return o[Math.floor(Math.random()*o.length)] };
 function advance() {
   const g = clone(G);
   if (g.phase === "lobby" || g.phase === "results") {
     if (g.round >= ROUNDS.length - 1) { g.phase = "end"; return commit(g) }
     g.round++; g.phase = ROUNDS[g.round].phases[0];
     g.timer = {endsAt:0, left:ROUNDS[g.round].mins*60, running:false};
+    g.limit = newLimit(g.limit);
     return commitWithTasks(g, makeDeal(g));
   }
   const ph = ROUNDS[g.round].phases; g.phase = ph[ph.indexOf(g.phase) + 1];
@@ -161,10 +163,12 @@ function hostView() {
   let now = `<div class="card"><div><div class="label">${r < 0 ? "Before the game" : `Round ${r+1} · ${PHASE_NAME[G.phase]}`}</div><h2>${r < 0 ? "Waiting for players" : esc(G.phase === "end" ? "Game over" : R().title)}</h2></div>`;
   if (G.phase === "listen" && k === "clips") now += `<div class="stack">${G.cfg.clips.map((c,i) => `<button data-play="${i}" ${c.id ? "" : "disabled"}>${player.playing === "h"+i ? "Stop" : "Play"} clip ${i+1}</button>`).join("")}</div>${G.cfg.clips.some(c => !c.id) ? `<p class="small muted">Add the missing clips under Setup.</p>` : ""}`;
   if (G.phase === "listen" && k === "wake") now += `<a href="https://www.youtube.com/results?search_query=James+Joyce+reads+Anna+Livia+Plurabelle+1929" target="_blank" rel="noopener">Joyce reading Anna Livia Plurabelle ↗</a>`;
+  if (G.phase === "listen" || G.phase === "make") now += `<div class="row between"><span><span class="label">Limit</span> ${G.limit ? esc(G.limit) : "None"}</span><span class="row"><button class="mini" data-a="limit">New limit</button>${G.limit ? `<button class="mini ghost" data-a="nolimit">No limit</button>` : ""}</span></div>`;
   if (G.phase === "make") now += clockHTML(G) + `<div class="row" style="justify-content:center"><button data-a="pause">${G.timer.running ? "Pause" : "Resume"}</button><button data-a="m1" aria-label="One minute less">−1 min</button><button data-a="p1" aria-label="One minute more">+1 min</button></div>`;
   if (G.phase === "listen" || G.phase === "lobby") now += `<div class="row"><span class="muted small">Drawing time</span><button class="mini" data-a="m1">−1</button><b>${fmt(G.timer.left)}</b><button class="mini" data-a="p1">+1</button></div>`;
   if (G.phase === "guess") { const n = players.filter(p => Object.keys(guessesOf(p.id, r)).length >= players.length - 1).length; now += `<p class="muted">${n} of ${players.length} have finished guessing.</p>` }
   if (G.phase === "results") now += resultsList(G);
+  if (G.phase === "lobby" || G.phase === "end") now += `<a href="party.html${esc(location.search)}">Party mode: live minigames on this screen ↗</a>`;
   if (G.phase === "end") now += finalList(G);
   else now += `<button class="primary wide" data-a="next" ${G.phase === "lobby" && players.length < 2 ? "disabled" : ""}>${nextLabel()}</button>`;
   now += `</div>`;
@@ -229,7 +233,9 @@ document.addEventListener("click", e => {
   if (a === "resetno") { confirmReset = false; render(); return }
   if (a === "resetyes") { confirmReset = false; resetGame(); return }
   if (a === "redeal") { commitWithTasks(g, makeDeal(g)); flash("Tasks shuffled."); return }
-  if (a === "pause") g.timer = g.timer.running ? {endsAt:0, left:L, running:false} : {endsAt:Date.now() + L*1000, left:L, running:true};
+  if (a === "limit") g.limit = newLimit(g.limit);
+  else if (a === "nolimit") g.limit = "";
+  else if (a === "pause") g.timer = g.timer.running ? {endsAt:0, left:L, running:false} : {endsAt:Date.now() + L*1000, left:L, running:true};
   else if (a === "m1" || a === "p1") { const s = Math.max(60, L + (a === "p1" ? 60 : -60)); g.timer = g.timer.running ? {endsAt:Date.now() + s*1000, left:s, running:true} : {endsAt:0, left:s, running:false} }
   else if (a === "savelists") {
     const lines = id => $(id).value.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 30);

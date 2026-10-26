@@ -12,7 +12,7 @@ Open **Setup**:
 ## Running it
 
 1. Share the **Player link**, or copy it into the family chat. Names appear as people join. A green dot means that phone is connected right now.
-2. Press the big button to step through each phase. During **Make** you can pause the timer or add and remove a minute. When time is up, the game moves to guessing by itself.
+2. Press the big button to step through each phase. During **Make** you can pause the timer, add or remove a minute, and shuffle or drop the drawing limit. When time is up, the game moves to guessing by itself.
 3. **Secret tasks** shows who got what. You can reassign anyone or shuffle again. Tasks are dealt automatically, including for latecomers.
 4. The ✕ next to a name removes that player, for example a duplicate.
 

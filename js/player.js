@@ -1,5 +1,6 @@
 import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { onSnapshot, setDoc, updateDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { startPad, update as updatePad } from "./pad.js";
 import { configured, auth, gameRef, col, sub, ROUNDS, STATE_V, blank, $, esc, clone, ls, leftNow, pname, options, fmt, totals,
   label, setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, playClip, loadClip, player, stop, notConfigured } from "./common.js";
 
@@ -51,7 +52,8 @@ function view() {
     if (k === "wake") title = t == null ? "Waiting for your angle" : `Draw ${esc((G.cfg.angles[+t] || "").replace(/^./, c => c.toLowerCase()))}`;
     if (k === "feel") { title = "Make a feeling"; extra = `<p>From today or this week. No faces, no words.</p>` }
     if (k === "portrait") { title = t == null ? "Waiting for your person" : `Draw ${esc(pname(players, t))}`; extra = t == null ? "" : "<p>As a feeling, not a face.</p>" }
-    body = `<div class="card hero"><div class="label">Your secret · Round ${r+1}</div><div class="big">${title}</div>${extra}</div><div class="card">${clockHTML(G)}</div>`;
+    const limit = G.limit ? `<div class="card limit"><div class="label">Everyone's limit</div><h2>${esc(G.limit)}</h2></div>` : "";
+    body = `<div class="card hero"><div class="label">Your secret · Round ${r+1}</div><div class="big">${title}</div>${extra}</div>${limit}<div class="card">${clockHTML(G)}</div>`;
     if (k === "feel") body += `<div class="card"><div class="label">Pick yours (secret)</div><div class="chips">${options(G, players, r).map(o => `<button class="chip" data-pick="${o.k}" aria-pressed="${String(mine.pick) === o.k}">${esc(o.l)}</button>`).join("")}</div></div>`;
   }
   if (ph === "guess") {
@@ -71,7 +73,8 @@ function myGuessesHTML(r) {
   const wrong = rows.filter(row => !right.includes(row));
   return `<div class="card hero"><div class="label">Your guesses</div><div class="big">${right.length} of ${rows.length} right</div>
     ${right.length ? `<p>Got: ${right.map(row => esc(row.n)).join(", ")}</p>` : ""}
-    ${wrong.length ? `<p class="small">Missed: ${wrong.map(row => `${esc(row.n)} (${mine.g[row.id] == null ? "no guess" : "you said " + esc(label(G, players, r, mine.g[row.id]))})`).join(", ")}</p>` : ""}</div>`;
+    ${wrong.length ? `<p class="small">Missed: ${wrong.map(row => `${esc(row.n)} (${mine.g[row.id] == null ? "no guess" : "you said " + esc(label(G, players, r, mine.g[row.id]))})`).join(", ")}</p>` : ""}
+    <p class="small">This round +${G.results[r].rows.find(row => row.id === uid)?.pts || 0} · Your total: <b>${totals(G).find(x => x.id === uid)?.pts || 0}</b></p></div>`;
 }
 function winnerHTML() {
   const t = totals(G), top = t.filter(p => p.pts === t[0]?.pts);
@@ -119,8 +122,9 @@ if (configured) onAuthStateChanged(auth, async u => {
     players = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (a.joined?.seconds ?? 9e9) - (b.joined?.seconds ?? 9e9));
     // coming back on the same device rejoins automatically; after that, being removed by the host shows the name form
     if (firstPlayers && name && !amIn()) join(name);
-    firstPlayers = false; render();
+    firstPlayers = false; render(); updatePad();
   }, fail);
+  startPad(uid, () => ({players, joined:amIn()}));
   onSnapshot(sub("tasks", uid), s => { task = s.exists() ? s.data() : null; render() }, () => {});
   try { const p = await getDoc(sub("private", uid)); restored = p.exists() ? p.data() : null; mine.r = null; render() } catch (e) {}
 });

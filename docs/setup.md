@@ -28,6 +28,7 @@ The script prints a link. There:
 2. Enable **Anonymous**. This is for players.
 3. Enable **Email/Password**. This is for the host.
 4. Under **Users** → **Add user**, add the host's email and a password.
+5. For party mode, open **Realtime Database**, click **Create database**, and choose us-central1 and locked mode.
 
 ## 4. Make yourself host
 

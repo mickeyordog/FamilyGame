@@ -8,6 +8,7 @@ It's a static website (plain HTML, CSS and JavaScript with no build step) backed
 
 - [Playing](playing.md): the rounds, the phases and how scoring works.
 - [Hosting a game](hosting.md): using the host page on game night.
+- [Party mode](party.md): live minigames with phones as joysticks.
 - [Code](code.md): what each file does.
 - [Data and security](data.md): how the game is stored in Firestore and who can read what.
 - [Setup](setup.md): creating the Firebase project and deploying.

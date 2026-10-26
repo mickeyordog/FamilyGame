@@ -1,6 +1,6 @@
 # Playing
 
-Players open the player link on their phone and type a name, with no account needed. The phone remembers them, so reloading puts them straight back in.
+Players open the player link on their phone and type a name. No account is needed, and reloading puts them straight back in.
 
 ## Rounds
 
@@ -16,12 +16,12 @@ Players open the player link on their phone and type a name, with no account nee
 Each round moves through these phases. The host moves things along.
 
 1. **Listen** (rounds 1 and 2 only): everyone hears the clips or the reading together.
-2. **Make**: your phone shows your secret task and a countdown (5 minutes by default). A chime plays when time runs out.
+2. **Make**: your phone shows your secret task, a countdown (5 minutes by default) and everyone's **limit**, such as "only circles".
 3. **Guess**: everyone holds up their drawings. On your phone, pick what you think each person drew.
-4. **Answers**: the real answers, the points and whose drawings you guessed right.
+4. **Answers**: the real answers, whose drawings you guessed right and your total.
 
 After round 4, the final scores and the winner appear. Ties show every winner.
 
 ## Scoring
 
-When you guess someone's drawing correctly, **you** get a point and **they** get a point. So drawing clearly pays off as much as guessing well.
+When you guess someone's drawing correctly, **you** get a point and **they** get a point.

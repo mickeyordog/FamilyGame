@@ -17,6 +17,7 @@ $FB apps:sdkconfig WEB "$APP" --project "$ID" --json | node -e '
   const r = JSON.parse(require("fs").readFileSync(0)).result, c = r.sdkConfig || r;
   const keep = ["apiKey","authDomain","projectId","storageBucket","messagingSenderId","appId"];
   const cfg = Object.fromEntries(keep.filter(k => c[k]).map(k => [k, c[k]]));
+  cfg.databaseURL = c.databaseURL || `https://${cfg.projectId}-default-rtdb.firebaseio.com`; // party mode
   const f = "js/config.js", s = require("fs").readFileSync(f, "utf8");
   require("fs").writeFileSync(f, s.replace(/export const firebaseConfig = \{[\s\S]*?\};/, "export const firebaseConfig = " + JSON.stringify(cfg, null, 2) + ";"));
   console.log("Wrote js/config.js");'
@@ -26,4 +27,6 @@ $FB firestore:databases:create "(default)" --location "$LOC" --project "$ID" || 
 echo
 echo "Next: enable Anonymous and Email/Password sign-in, then add yourself as a user:"
 echo "  https://console.firebase.google.com/project/$ID/authentication/providers"
+echo "For party mode, create the Realtime Database (us-central1, locked mode):"
+echo "  https://console.firebase.google.com/project/$ID/database"
 echo "Then run: scripts/set-host.sh $ID <your-email>"

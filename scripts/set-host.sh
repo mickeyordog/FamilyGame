@@ -1,5 +1,5 @@
 #!/bin/bash
-# Puts the host account's UID into firestore.rules and deploys the rules.
+# Puts the host account's UID into firestore.rules and database.rules.json, and deploys both.
 # Usage: scripts/set-host.sh <project-id> <host-email>
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,5 +14,6 @@ UID_=$(EMAIL="$EMAIL" node -e 'const u=JSON.parse(require("fs").readFileSync(pro
 [ -z "$UID_" ] && { echo "No user with email $EMAIL. Add one under Authentication → Users first."; exit 1; }
 
 sed -i.bak -E "s/request\.auth\.uid in \['[^']*'\]/request.auth.uid in ['$UID_']/" firestore.rules && rm firestore.rules.bak
-echo "Host UID $UID_ written to firestore.rules"
-$FB deploy --only firestore:rules --project "$ID"
+sed -i.bak -E "s/auth\.uid === '[^']*'/auth.uid === '$UID_'/g" database.rules.json && rm database.rules.json.bak
+echo "Host UID $UID_ written to firestore.rules and database.rules.json"
+$FB deploy --only firestore:rules,database --project "$ID"
