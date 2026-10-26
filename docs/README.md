@@ -12,3 +12,4 @@ It's a static website (plain HTML, CSS and JavaScript with no build step) backed
 - [Code](code.md): what each file does.
 - [Data and security](data.md): how the game is stored in Firestore and who can read what.
 - [Setup](setup.md): creating the Firebase project and deploying.
+- [Roadmap](roadmap.md): open problems and ideas, including party mode's lag.
