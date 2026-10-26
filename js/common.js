@@ -28,8 +28,8 @@ export const DEFAULT_FEELINGS = ["Joy","Calm","Worry","Frustration","Tired","Exc
 export const ROUNDS = [
   {key:"clips",title:"Guess the Clip",phases:["listen","make","guess","results"],mins:5},
   {key:"wake",title:"Wake Drawings",phases:["listen","make","guess","results"],mins:5},
-  {key:"feel",title:"Feelings",phases:["make","guess","results"],mins:5},
   {key:"portrait",title:"Secret Portrait",phases:["make","guess","results"],mins:5},
+  {key:"feel",title:"Feelings",phases:["make","guess","results"],mins:5}, // last, so nobody has seen anyone's feelings before drawing them
 ];
 export const CLIP_SECS = 30;
 export const STATE_V = 4;

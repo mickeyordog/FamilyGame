@@ -24,14 +24,14 @@ console.log("clip docs:",parts.documents.map(d=>d.name.split("/").pop()).join(",
 const names=["Ann","Ben","Cat"],ps=[];
 for(const n of names){const p=await open(B+"index.html?emu",n);await waitText(p,"What's your name?");await p.type("#nm",n);await click(p,"#nameform button");await waitText(p,"You're in");ps.push(p)}
 await waitText(host,"Cat");
-console.log("lobby on Ann lists everyone:",await waitText(ps[0],"Ann, Ben, Cat").then(()=>true));
+console.log("lobby on Ann lists everyone:",await ps[0].waitForFunction(()=>["Ann","Ben","Cat"].every(n=>document.body.innerText.includes(n)),{timeout:15000}).then(()=>true));
 
 async function playRound(r,hasListen){
   await clickText(host,`Start round ${r}`);
   if(hasListen){await waitText(ps[0],r===1?"Listen together":"Listen to the reading");await clickText(host,"Start making")}
   for(const p of ps)await waitText(p,"Your secret");
   if(r===1)for(const p of ps){await clickText(p,"Play my clip");await waitText(p,"Stop",10000);console.log(`  ${p.tag} clip plays`)}
-  if(r===4&&ps.length===3){const p=await open(B+"index.html?emu","Dan");await waitText(p,"What's your name?");await p.type("#nm","Dan");await click(p,"#nameform button");ps.push(p);await waitText(p,"Your secret")}
+  if(r===3&&ps.length===3){const p=await open(B+"index.html?emu","Dan");await waitText(p,"What's your name?");await p.type("#nm","Dan");await click(p,"#nameform button");ps.push(p);await waitText(p,"Your secret")}
   await new Promise(r=>setTimeout(r,1500));
   shown={};for(const p of ps){const t=await p.evaluate(()=>document.querySelector(".hero .big").innerText);shown[p.tag]=t;console.log(`  ${p.tag} task: ${t}`)}
   if(r===1){
@@ -45,9 +45,9 @@ async function playRound(r,hasListen){
       return out},ben);
     console.log("  Ann reading Ben's secrets / writing state:",JSON.stringify(res));
   }
-  if(r===3)for(const [i,p] of ps.entries())await p.evaluate(i=>document.querySelectorAll("[data-pick]")[i].click(),i)
+  if(r===4)for(const [i,p] of ps.entries())await p.evaluate(i=>document.querySelectorAll("[data-pick]")[i].click(),i)
   await new Promise(r=>setTimeout(r,800));
-  if(r===3)console.log("  host sees picks:",(await text(host)).match(/not picked/)?"some missing":"all picked");
+  if(r===4)console.log("  host sees picks:",(await text(host)).match(/not picked/)?"some missing":"all picked");
   await clickText(host,"End timer and guess");
   for(const p of ps){await waitText(p,"Look at each piece");
     // guess the first available option for everyone
@@ -58,8 +58,9 @@ async function playRound(r,hasListen){
   await waitText(ps[1],"answers");
   const rows=await ps[1].evaluate(()=>[...document.querySelectorAll(".list li")].map(li=>li.innerText.replace(/\n/g," | ")));
   console.log("  results on Ben:\n    "+rows.join("\n    "));
+  console.log("  Ben's guesses:",await ps[1].evaluate(()=>document.querySelector(".hero").innerText.replace(/\n+/g," | ")));
   for(const p of ps){const row=rows.find(x=>x.startsWith(p.tag+" · "));const ans=row.split(" · ")[1].split(" | ")[0];const s=shown[p.tag];
-    const ok=r===3?true:r===1?s===`Clip ${ans.split(" ")[0]}`:s.toLowerCase().includes(ans.toLowerCase());if(!ok)console.log(`  !! MISMATCH ${p.tag}: shown "${s}" vs answer "${ans}"`)}
+    const ok=r===4?true:r===1?s===ans:s.toLowerCase().includes(ans.toLowerCase());if(!ok)console.log(`  !! MISMATCH ${p.tag}: shown "${s}" vs answer "${ans}"`)}
   if(r===1){const c=Object.values(shown);console.log("  distinct clips:",new Set(c).size===c.length)}
 }
 await playRound(1,true);await playRound(2,true);await playRound(3,false);await playRound(4,false);

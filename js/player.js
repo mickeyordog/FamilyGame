@@ -1,7 +1,7 @@
 import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { onSnapshot, setDoc, updateDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { configured, auth, gameRef, col, sub, ROUNDS, STATE_V, blank, $, esc, clone, ls, leftNow, pname, options, fmt, totals,
-  setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, playClip, loadClip, player, stop, notConfigured } from "./common.js";
+  label, setFlashRender, flash, header, progress, clockHTML, resultsList, finalList, renderInto, chime, playClip, loadClip, player, stop, notConfigured } from "./common.js";
 
 let G = blank(), players = [], task = null, restored = null, uid = null, conn = "connecting";
 let name = ls("fidi-name") || "", editing = false, firstPlayers = true;
@@ -61,8 +61,17 @@ function view() {
       <p class="muted small">Look at each piece, then pick.</p>
       <div>${others.map(p => `<div class="guess"><b>${esc(p.n)}</b><div class="chips">${opts.filter(o => !(k === "portrait" && o.k === p.id)).map(o => `<button class="chip" data-guess="${p.id}" data-k="${o.k}" aria-pressed="${String(mine.g[p.id]) === o.k}">${esc(o.l)}</button>`).join("")}</div></div>`).join("") || `<p class="muted">No one else is playing.</p>`}</div></div>`;
   }
-  if (ph === "results") body = `<div class="card"><h2>${esc(ROUNDS[r].title)}: answers</h2>${resultsList(G)}</div>`;
+  if (ph === "results") body = myGuessesHTML(r) + `<div class="card"><h2>${esc(ROUNDS[r].title)}: answers</h2>${resultsList(G)}</div>`;
   return progress(G) + body;
+}
+/* the player's own guesses this round, checked against the revealed answers */
+function myGuessesHTML(r) {
+  const rows = (G.results[r]?.rows || []).filter(row => row.id !== uid); if (!rows.length) return "";
+  const right = rows.filter(row => mine.g[row.id] != null && label(G, players, r, mine.g[row.id]) === row.a);
+  const wrong = rows.filter(row => !right.includes(row));
+  return `<div class="card hero"><div class="label">Your guesses</div><div class="big">${right.length} of ${rows.length} right</div>
+    ${right.length ? `<p>Got: ${right.map(row => esc(row.n)).join(", ")}</p>` : ""}
+    ${wrong.length ? `<p class="small">Missed: ${wrong.map(row => `${esc(row.n)} (${mine.g[row.id] == null ? "no guess" : "you said " + esc(label(G, players, r, mine.g[row.id]))})`).join(", ")}</p>` : ""}</div>`;
 }
 function winnerHTML() {
   const t = totals(G), top = t.filter(p => p.pts === t[0]?.pts);
