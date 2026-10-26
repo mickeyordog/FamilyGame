@@ -12,6 +12,7 @@ js/player.js      player page logic
 js/host.js        host page logic: dealing, scoring, timer, clip-making
 firestore.rules   database security rules
 scripts/          one-time Firebase setup
+tests/            end-to-end test
 ```
 
 ## How a page works
@@ -26,4 +27,6 @@ The host page decodes the chosen song in the browser and cuts 30 seconds. It sav
 
 ## Testing locally
 
-Run `python3 -m http.server 5173` and open the pages. Add `?emu` to the URL to use local Firebase emulators instead of the real project: `npx firebase-tools emulators:start --project demo-fidi`.
+Run `python3 -m http.server 5173` and open the pages.
+
+`tests/run.sh` plays a whole game against local Firebase emulators in headless Chrome. It needs Java and Chrome, and it never touches the real project.
