@@ -7,7 +7,7 @@ ID=${1:?Usage: scripts/setup.sh <project-id> [location]}
 LOC=${2:-nam5}
 FB="npx -y firebase-tools@13.29.1"
 
-if $FB projects:list --json | grep -q "\"projectId\": \"$ID\""; then echo "Project $ID already exists."
+if $FB apps:list WEB --project "$ID" >/dev/null 2>&1; then echo "Project $ID already exists."
 else $FB projects:create "$ID" --display-name "Feel It Draw It"; fi
 
 APP=$($FB apps:list WEB --project "$ID" --json | node -e 'const r=JSON.parse(require("fs").readFileSync(0)).result||[];console.log(r[0]?.appId||"")')

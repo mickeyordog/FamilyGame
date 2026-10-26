@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Replace with the UID of your host account (Firebase console → Authentication → Users).
-    function isHost() { return request.auth != null && request.auth.uid in ['REPLACE_WITH_HOST_UID']; }
+    function isHost() { return request.auth != null && request.auth.uid in ['SxL8iT7A6FZB173XlafthTbgg5W2']; }
     function isMe(uid) { return request.auth != null && request.auth.uid == uid; }
 
     match /games/{game} {
