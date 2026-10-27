@@ -91,5 +91,13 @@ await host.screenshot({path:S+"/party-host.png"});await ps[0].screenshot({path:S
 await clickText(host,"Back to the drawing game");
 for(const p of ps)await p.waitForSelector(".pad[hidden]",{timeout:10000});
 console.log("party: phones back to the drawing game");
+// leaving mid-round with the corner button
+await host.goto(B+"party.html?emu");
+for(const p of ps)await p.waitForSelector(".pad:not([hidden])",{timeout:10000});
+await host.waitForFunction(n=>(document.body.innerText.match(/controller ready/g)||[]).length===n,{timeout:10000},ps.length);
+await clickText(host,"Play Dodgefall");await waitText(ps[0],"Get ready");
+await clickText(host,"✕ Exit party mode");await waitText(host,"Party mode: live minigames");
+for(const p of ps)await p.waitForSelector(".pad[hidden]",{timeout:10000});
+console.log("party: exit mid-round works");
 console.log("ERRORS:",errs.length?errs:"none");
 await browser.close();

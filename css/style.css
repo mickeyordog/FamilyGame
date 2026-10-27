@@ -96,6 +96,8 @@ body.tv{margin:0;height:100vh;overflow:hidden;display:grid;place-items:center;ba
 .tv .count{font-family:var(--display);font-weight:800;font-size:min(30vh,30vw);color:#fff;text-shadow:0 6px 30px rgba(0,0,0,.5)}
 .tv .swatch{display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:-3px;margin-right:8px}
 .tv button{background:#1c1e3a;border-color:#2f3258;color:#eceeff}
+.tv .exit{position:fixed;top:12px;right:12px;opacity:.7}
+.tv .exit:hover{opacity:1}
 .tv .primary{background:#8c98ff;color:#0f1030;border-color:#8c98ff}
 .tv .list li{border-color:#2f3258}
 .tv .muted{color:#a3a7c9}

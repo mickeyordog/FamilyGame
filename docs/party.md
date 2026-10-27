@@ -6,7 +6,7 @@ Live minigames, separate from the drawing game. The laptop (ideally on a TV) is 
 
 On the host page, open **Party mode** from the lobby or the final scores. Phones on the player link switch to a joystick by themselves. Drag anywhere on the pad to move.
 
-Pick a minigame. 1st place gets 3 points, 2nd gets 2 and 3rd gets 1. Party scores are kept apart from drawing scores. **Back to the drawing game**, or closing the party screen, hands the phones back.
+Pick a minigame. 1st place gets 3 points, 2nd gets 2 and 3rd gets 1. Party scores are kept apart from drawing scores. **Back to the drawing game**, the corner **✕ Exit** button (even mid-round), or closing the screen hands the phones back.
 
 | Minigame | Goal |
 |---|---|
@@ -16,7 +16,7 @@ Pick a minigame. 1st place gets 3 points, 2nd gets 2 and 3rd gets 1. Party score
 
 `party.html` and `js/party.js` run the game on the laptop and draw everyone. Phones only send their stick direction (`js/pad.js`), and only when it changes.
 
-That live data goes through the Firebase **Realtime Database**, which has lower lag than Firestore. It's free on the Spark plan.
+That live data goes through the Firebase **Realtime Database** (lower lag than Firestore, free on Spark).
 
 | Path | Holds | Read | Write |
 |---|---|---|---|

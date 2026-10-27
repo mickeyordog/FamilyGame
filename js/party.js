@@ -137,8 +137,15 @@ document.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.play) return begin(b.dataset.play);
   if (b.dataset.a === "zero") { M = {...M, scores:{}, last:null, phase:"lobby"}; save(); render() }
-  if (b.dataset.a === "exit") { M = {...M, on:false, phase:"lobby"}; set(metaRef, M).finally(() => location.href = "host.html" + location.search) }
+  if (b.dataset.a === "exit") exit();
 });
+/* works from any screen, even mid-round; phones go back to the drawing game */
+function exit() {
+  const back = () => location.href = "host.html" + location.search;
+  if (conn !== "on") return back();
+  S = null; M = {...M, on:false, phase:"lobby"};
+  Promise.race([set(metaRef, M), new Promise(r => setTimeout(r, 2000))]).finally(back); // don't hang if offline
+}
 
 /* ---------- connect ---------- */
 render(); requestAnimationFrame(frame);
